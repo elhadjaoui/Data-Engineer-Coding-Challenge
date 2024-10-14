@@ -23,25 +23,25 @@ def create_server_connection():
         print(f"Error: '{err}'")
         return None
 
-def create_database(connection, db_name):
+def create_database(connection):
     """Create a new database."""
     cursor = connection.cursor()
     try:
-        cursor.execute(f"CREATE DATABASE IF NOT EXISTS {db_name}")
-        print(f"Database '{db_name}' created successfully")
+        cursor.execute(f"CREATE DATABASE IF NOT EXISTS {os.getenv('DB_NAME')}")
+        print(f"Database '{os.getenv('DB_NAME')}' created successfully")
     except Error as err:
         print(f"Error: '{err}'")
 
-def create_db_connection(db_name):
+def create_db_connection():
     """Create a connection to a specific database."""
     try:
         connection = mysql.connector.connect(
             host=os.getenv('DB_HOST'),
             user=os.getenv('DB_USER'),
             password=os.getenv('DB_PASSWORD'),
-            database=db_name
+            database=os.getenv('DB_NAME')
         )
-        print(f"MySQL Database connection to '{db_name}' successful")
+        print(f"MySQL Database connection to '{os.getenv('DB_NAME')}' successful")
         return connection
     except Error as err:
         print(f"Error: '{err}'")
@@ -153,16 +153,24 @@ def generate_order_items(conn, avg_items_per_order):
     conn.commit()
 
 def main():
-    conn = create_connection_and_database()
-    create_tables(conn)
-    
-    generate_countries(conn, 10)
-    generate_stores(conn, 50)
-    generate_products(conn, 1000)
-    generate_orders(conn, 10000)
-    generate_order_items(conn, 3)
-    
+    conn = create_server_connection()
+    if conn is None:
+        return
+    create_database(conn)
     conn.close()
+    
+    db_conn = create_db_connection()
+    if db_conn is None:
+        return
+    
+    create_tables(db_conn)
+    generate_countries(db_conn, 10)
+    generate_stores(db_conn, 50)
+    generate_products(db_conn, 1000)
+    generate_orders(db_conn, 10000)
+    generate_order_items(db_conn, 3)
+    
+    db_conn.close()
 
 if __name__ == "__main__":
     main()
