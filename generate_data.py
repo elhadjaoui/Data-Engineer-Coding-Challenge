@@ -15,7 +15,7 @@ def create_server_connection():
             host=os.getenv('DB_HOST'),
             user=os.getenv('DB_USER'),
             password=os.getenv('DB_PASSWORD'),
-            database=os.getenv('DEFAULT_DB')
+            # database=os.getenv('DEFAULT_DB')
         )
         print("MySQL Server connection successful")
         return connection
@@ -49,56 +49,62 @@ def create_db_connection():
 
 def create_tables(conn):
     cursor = conn.cursor()
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS countries (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255),
-        created_at DATETIME
-    )''')
-    
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS stores (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        slug VARCHAR(255),
-        created_at DATETIME,
-        country_id INT,
-        FOREIGN KEY (country_id) REFERENCES countries (id)
-    )''')
-    
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS products (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        slug VARCHAR(255),
-        price DECIMAL(10,2),
-        store_id INT,
-        FOREIGN KEY (store_id) REFERENCES stores (id)
-    )''')
-    
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS orders (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        type VARCHAR(255),
-        created_at DATETIME,
-        store_id INT,
-        FOREIGN KEY (store_id) REFERENCES stores (id)
-    )''')
-    
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS order_items (
-        order_id INT,
-        product_id INT,
-        quantity INT,
-        FOREIGN KEY (order_id) REFERENCES orders (id),
-        FOREIGN KEY (product_id) REFERENCES products (id)
-    )''')
-    
-    conn.commit()
+    try:
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS countries (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            created_at DATETIME NOT NULL
+        )''')
+
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS stores (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            slug VARCHAR(255) NOT NULL,
+            created_at DATETIME NOT NULL,
+            country_id INT,
+            FOREIGN KEY (country_id) REFERENCES countries (id)
+        )''')
+
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS products (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            slug VARCHAR(255) NOT NULL,
+            price DECIMAL(10,2) NOT NULL,
+            store_id INT,
+            FOREIGN KEY (store_id) REFERENCES stores (id)
+        )''')
+
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS orders (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            type VARCHAR(255) NOT NULL,  
+            created_at DATETIME NOT NULL,
+            store_id INT,
+            FOREIGN KEY (store_id) REFERENCES stores (id)
+        )''')
+
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS order_items (
+            order_id INT,
+            product_id INT,
+            quantity INT NOT NULL,
+            FOREIGN KEY (order_id) REFERENCES orders (id),
+            FOREIGN KEY (product_id) REFERENCES products (id),
+            PRIMARY KEY (order_id, product_id)
+        )''')
+
+        conn.commit()
+        print("Tables created successfully")
+    except Error as err:
+        print(f"Error: '{err}'")
+        exit(1)
 
 def generate_countries(conn, num_countries):
     cursor = conn.cursor()
     for _ in range(num_countries):
         name = fake.country()
-        created_at = fake.date_time_between(start_date='-2y', end_date='now')
+        created_at = fake.date_time_between(start_date='-5y', end_date='now')
         cursor.execute('INSERT INTO countries (name, created_at) VALUES (%s, %s)', (name, created_at))
     conn.commit()
 
@@ -108,7 +114,7 @@ def generate_stores(conn, num_stores):
     countries = cursor.fetchall()
     for _ in range(num_stores):
         slug = fake.slug()
-        created_at = fake.date_time_between(start_date='-18m', end_date='now')
+        created_at = fake.date_time_between(start_date='-5y', end_date='now')
         country_id = random.choice(countries)[0]
         cursor.execute('INSERT INTO stores (slug, created_at, country_id) VALUES (%s, %s, %s)', (slug, created_at, country_id))
     conn.commit()
@@ -145,11 +151,15 @@ def generate_order_items(conn, avg_items_per_order):
     products = cursor.fetchall()
     
     for order in orders:
-        num_items = random.randint(1, avg_items_per_order * 2)
+        num_items = random.randint(1, avg_items_per_order *2)
         for _ in range(num_items):
             product_id = random.choice(products)[0]
             quantity = random.randint(1, 5)
-            cursor.execute('INSERT INTO order_items (order_id, product_id, quantity) VALUES (%s, %s, %s)', (order[0], product_id, quantity))
+            try:
+                cursor.execute('INSERT INTO order_items (order_id, product_id, quantity) VALUES (%s, %s, %s)', (order[0], product_id, quantity))
+            except Error as err:
+                print(f"Error: '{err}'")
+                print(f"Order ID: {order[0]}, Product ID: {product_id}, Quantity: {quantity}")
     conn.commit()
 
 def main():
