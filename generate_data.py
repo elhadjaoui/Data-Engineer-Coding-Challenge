@@ -101,9 +101,14 @@ def create_tables(conn):
         exit(1)
 
 def generate_countries(conn, num_countries):
+    dup = set() # remove duplicates
     cursor = conn.cursor()
     for _ in range(num_countries):
         name = fake.country()
+        while name  in dup:
+            name = fake.country()
+            dup.add(name)
+            print(name)
         created_at = fake.date_time_between(start_date='-5y', end_date='now')
         cursor.execute('INSERT INTO countries (name, created_at) VALUES (%s, %s)', (name, created_at))
     conn.commit()

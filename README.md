@@ -22,11 +22,11 @@ WITH cte AS (
 gmv_total AS (
     SELECT COALESCE(SUM(price * quantity), 0) AS total_gmv
     FROM cte
-    WHERE DATEDIFF(NOW(), created_at) <= 365 OR created_at IS NULL -- last year or no sales
+    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR) OR created_at IS NULL -- last year or no sales
 )
 SELECT 
     country_name,
-    CONCAT(COALESCE(SUM(price * quantity), 0),' DH') AS GMV,
+    COALESCE(SUM(price * quantity), 0) AS GMV,
     CASE 
         WHEN gmv_total.total_gmv > 0 
         THEN CONCAT(ROUND((COALESCE(SUM(price * quantity), 0) * 100) / gmv_total.total_gmv, 2), ' %')
@@ -36,7 +36,7 @@ FROM
     cte,
     gmv_total
 WHERE
-    DATEDIFF(NOW(), created_at) <= 365 OR created_at IS NULL -- last year or no sales
+    created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR) OR created_at IS NULL -- last year or no sales
 GROUP BY country_name, gmv_total.total_gmv
 ORDER BY GMV DESC;
 ```
@@ -59,19 +59,26 @@ WITH cte AS
 		order_items oi ON oi.order_id = o.id 
     JOIN 
 		products p ON p.id = oi.product_id
+),
+gmv_total AS (
+    SELECT COALESCE(SUM(price * quantity), 0) AS total_gmv
+    FROM
+		cte
+   WHERE 
+		created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)  -- last year 
 )
 SELECT 
     store_id,
     store_name,
-    CONCAT(SUM(price * quantity),' DH') AS GVM,
-    CONCAT(ROUND((SUM(price * quantity) * 100) 
-    / 
-    (SELECT SUM(price * quantity) FROM cte WHERE DATEDIFF(NOW(), created_at) <= 365), 2),' %') AS percentage
+    SUM(price * quantity) AS GVM,
+    CONCAT(ROUND((SUM(price * quantity) * 100) / gmv_total.total_gmv,2),' %') AS percentage
 FROM
-    cte
+
+    cte,
+    gmv_total
 WHERE
-    DATEDIFF(NOW(), created_at) <= 365 -- last year
-GROUP BY store_id, store_name
+    created_at >= DATE_SUB(NOW(), INTERVAL 1 YEAR)  -- last year
+GROUP BY store_id, store_name, gmv_total.total_gmv
 ORDER BY GVM DESC
 LIMIT 10 -- top 10 stores
 ```
